@@ -7,13 +7,14 @@ import {
     StyleSheet,
     Text,
     View,
-    Image
+    Image,
+    TextInput
 } from 'react-native';
 
 import MapView from 'react-native-maps';
 import ImagePicker from 'react-native-image-picker';
 var Lightbox = require('react-native-lightbox');
-
+var SearchBar = require('react-native-search-bar');
 
 export  default  class App extends Component {
     constructor() {
@@ -37,8 +38,9 @@ export  default  class App extends Component {
             this.setState({
                 locationsArr: [
                     {
-                        latitude: position.coords.latitude,
-                        longitude: position.coords.longitude
+                        latitude: 37.7616968,
+                        longitude: -122.4225494,
+                        name: "Demo",
                     }
                 ]
             })
@@ -86,9 +88,9 @@ export  default  class App extends Component {
         this.state.locationsArr.forEach((location, index) => {
             result.push(
                 <MapView.Marker
+                    image={require('./marker.png')}
                     key={index}
                     coordinate={location}
-                    title={'Current position'}
                 >
                     <MapView.Callout>
                         <Lightbox
@@ -107,7 +109,8 @@ export  default  class App extends Component {
                             navigator={this.props.navigator}>
                             <View
                                 style={{justifyContent: 'center', alignItems: 'center'}}
-                                >
+                            >
+                                <Text>{location.name}</Text>
                                 <Image
                                     source={location.image}
                                     style={this.state.imageSize}
@@ -119,29 +122,82 @@ export  default  class App extends Component {
             )
         });
         return result;
+    };
+
+    _searchYelp = (keyword) => {
+        console.log("searching....")
+        let currentLocation = this.state.locationsArr[0];
+        const request = new Request(`https://api.yelp.com/v3/businesses/search?latitude=${currentLocation.latitude}&longitude=${currentLocation.longitude}&term=${this.state.keyword}`, {
+            method: 'GET',
+            headers: new Headers({
+                'Authorization': 'Bearer 3cRNmF8k-aE_vSGrIeE0BYFmSxXxcx1vA-3_cJA1W-zRZPf0I6Wy2ZY5D77d2QScP6B64nG0jndzU92PURmGJmUEWswp2SHwatipvoGzbKkdNpMWA3eUt_3UlmnXWHYx',
+            })
+        });
+
+        try {
+            fetch(request)
+                .then((response) => response.json())
+                .then((json) => {
+                    console.log("Restaurant " + json.businesses.length);
+                    var locations = [...this.state.locationsArr];
+                    json.businesses.forEach(restaurant => {
+                        locations.push({
+                            latitude: restaurant.coordinates.latitude,
+                            longitude: restaurant.coordinates.longitude,
+                            image: {uri: restaurant.image_url},
+                            name: restaurant.name,
+                            address: restaurant.location.display_address[0] + " " + restaurant.location.display_address[1],
+                        })
+                    })
+                    this.setState({
+                        locationsArr: locations,
+                    })
+                })
+        } catch (error) {
+            console.log("Error " + error.message)
+        }
+
     }
 
     render() {
         const region = {
-            latitude: 10.8231,
-            longitude: 106.6297,
+            latitude: 37.7616968,
+            longitude: -122.4225494,
             latitudeDelta: 0.0922,
             longitudeDelta: 0.0421,
         };
         console.log(this.state.location);
 
         return (
-            <MapView
-                region={region}
+            <View
                 style={{flex: 1,}}
-                onLongPress={(e) => {
+            >
+                <View
+                    style={{marginTop: 30}}
+                >
+                    <SearchBar
+                        onChangeText={(keyword) => {
+                            this.setState({
+                                keyword
+                            })
+                        }}
+                        onSearchButtonPress={this._searchYelp}
+                        ref='searchBar'
+                        placeholder='Search'
+                        enablesReturnKeyAutomatically={true}
+                    />
+                </View>
+                <MapView
+                    region={region}
+                    style={{flex: 1,}}
+                    onLongPress={(e) => {
                   const { coordinate } = e.nativeEvent;
                     this.selectPhoto(coordinate);
                     }}
-            >
-                {this._renderMarkerView()}
-            </MapView>
-
+                >
+                    {this._renderMarkerView()}
+                </MapView>
+            </View>
         )
     }
 }
